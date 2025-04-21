@@ -1566,6 +1566,16 @@
             // Definir data para hoje no formulário
             document.getElementById('date').valueAsDate = new Date();
         });
+        // Salvar dados no localStorage
+localStorage.setItem('transacoes', JSON.stringify(transactions));
+
+// Recuperar dados ao carregar
+const dadosSalvos = localStorage.getItem('transacoes');
+if (dadosSalvos) {
+  transactions = JSON.parse(dadosSalvos);
+  updateDashboard();
+}
+
     </script>
 </body>
 </html>

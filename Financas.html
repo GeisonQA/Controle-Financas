@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Finanças</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        sidebar: '#1a3a5f',
+                        primary: '#1a3a5f',
+                        secondary: '#f5a623',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* === ESTILOS CSS === */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal.open {
+            display: flex;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.25rem;
+            z-index: 50;
+            animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .notification.success {
+            background-color: #d1fae5;
+            border: 1px solid #34d399;
+            color: #047857;
+        }
+        
+        .notification.error {
+            background-color: #fee2e2;
+            border: 1px solid #f87171;
+            color: #b91c1c;
+        }
+        
+        .notification.warning {
+            background-color: #fef3c7;
+            border: 1px solid #fbbf24;
+            color: #92400e;
+        }
+        
+        .notification.info {
+            background-color: #dbeafe;
+            border: 1px solid #60a5fa;
+            color: #1e40af;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(20px); }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            
+            .sidebar-menu {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .sidebar.open .sidebar-menu {
+                display: flex;
+                flex-direction: column;
+            }
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 100%;
+            width: 100%;
+        }
+        
+        /* Estilos para aumentar a área clicável nos botões pequenos */
+        .action-button {
+            min-height: 32px;
+            min-width: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Efeitos de hover nas linhas da tabela */
+        .transaction-row:hover {
+            background-color: rgba(0,0,0,0.025);
+        }
+        
+        /* Scrollbar personalizada para tabelas */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #ddd;
+            border-radius: 4px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #ccc;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col md:flex-row min-h-screen">
+    <!-- === ESTRUTURA HTML === -->
+    
+    <!-- Sidebar -->
+    <div class="sidebar bg-sidebar text-white w-full md:w-60 md:fixed md:h-screen md:flex md:flex-col z-10">
+        <!-- Profile -->
+        <div class="flex flex-col items-center p-6 border-b border-gray-700">
+            <div class="w-20 h-20 rounded-full bg-white flex items-center justify-center mb-3">
+                <i class="fas fa-user text-sidebar text-4xl"></i>
+            </div>
+            <h2 class="text-xl font-bold">Convidado</h2>
+            <p class="text-sm text-gray-300">Criador: Geison Sousa</p>
+        </div>
+        
+        <!-- Navigation -->
+        <div class="sidebar-menu flex flex-col p-3">
+            <a href="#" class="sidebar-link flex items-center space-x-3 p-3 rounded-md mb-1 hover:bg-white/10 bg-white/10">
+                <i class="fas fa-home w-5 text-center"></i>
+                <span>dashboard</span>
+            </a>
+            <a href="#" class="sidebar-link flex items-center space-x-3 p-3 rounded-md mb-1 hover:bg-white/10" id="data-entry-link">
+                <i class="fas fa-file w-5 text-center"></i>
+                <span>dados</span>
+            </a>
+            <a href="#" class="sidebar-link flex items-center space-x-3 p-3 rounded-md mb-1 hover:bg-white/10" id="import-data-link">
+                <i class="fas fa-file-import w-5 text-center"></i>
+                <span>importar</span>
+            </a>
+            <a href="#" class="sidebar-link flex items-center space-x-3 p-3 rounded-md mb-1 hover:bg-white/10" id="api-link">
+                <i class="fas fa-link w-5 text-center"></i>
+                <span>API</span>
+            </a>
+            <a href="#" class="sidebar-link flex items-center space-x-3 p-3 rounded-md mb-1 hover:bg-white/10" id="transaction-list-link">
+                <i class="fas fa-list w-5 text-center"></i>
+                <span>transações</span>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content flex-1 md:ml-60 p-4">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-semibold">Dashboard Financeiro</h1>
+            <div class="flex items-center space-x-2">
+                <button id="refresh-data-btn" class="bg-secondary text-white px-3 py-1 rounded-full text-sm">
+                    <i class="fas fa-sync-alt mr-1"></i> Atualizar
+                </button>
+                <button class="md:hidden" id="sidebar-toggle">
+                    <i class="fas fa-bars text-2xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-primary text-white rounded-md shadow-md p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm">Ganhos</span>
+                    <span class="bg-white/20 w-6 h-6 flex items-center justify-center rounded-full">$</span>
+                </div>
+                <h3 class="text-2xl font-bold mb-1" id="total-income">$ 628</h3>
+            </div>
+            
+            <div class="bg-white rounded-md shadow-md p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm text-gray-500">Transações</span>
+                    <i class="fas fa-exchange-alt text-secondary"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-1" id="transaction-count">0</h3>
+            </div>
+            
+            <div class="bg-white rounded-md shadow-md p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm text-gray-500">Despesas</span>
+                    <i class="fas fa-shopping-cart text-secondary"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-1" id="total-expenses">$ 0</h3>
+            </div>
+            
+            <div class="bg-white rounded-md shadow-md p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm text-gray-500">Saldo</span>
+                    <i class="fas fa-wallet text-secondary"></i>
+                </div>
+                <h3 class="text-2xl font-bold mb-1" id="balance">$ 0</h3>
+            </div>
+        </div>
+        
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <!-- Bar Chart -->
+            <div class="bg-white rounded-md shadow-md p-4 lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Resultado Mensal</h2>
+                    <div class="flex space-x-2">
+                        <div class="flex items-center text-xs">
+                            <div class="w-3 h-3 rounded-full bg-primary mr-1"></div>
+                            <span>Despesas</span>
+                        </div>
+                        <div class="flex items-center text-xs">
+                            <div class="w-3 h-3 rounded-full bg-secondary mr-1"></div>
+                            <span>Receitas</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="h-64">
+                    <canvas id="monthly-chart"></canvas>
+                </div>
+                <div class="flex justify-end mt-2">
+                    <select id="year-selector" class="bg-white border border-gray-300 text-xs rounded-md px-2 py-1 mr-2">
+                        <option value="2023">2023</option>
+                        <option value="2024" selected>2024</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Donut Chart -->
+            <div class="bg-white rounded-md shadow-md p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Despesas por Categoria</h2>
+                </div>
+                <div class="h-48 flex justify-center">
+                    <canvas id="expenses-chart"></canvas>
+                </div>
+                <div class="mt-4 text-xs space-y-1" id="category-legend">
+                    <!-- Category legends will be populated here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Transactions Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Area Chart -->
+            <div class="bg-white rounded-md shadow-md p-4 lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Fluxo de Caixa</h2>
+                </div>
+                <div class="h-64">
+                    <canvas id="area-chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Recent Transactions -->
+            <div class="bg-white rounded-md shadow-md p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Transações Recentes</h2>
+                    <button id="view-all-transactions" class="text-secondary text-xs">Ver todas</button>
+                </div>
+                <div class="space-y-3 max-h-64 overflow-y-auto custom-scrollbar" id="recent-transactions">
+                    <!-- Transactions will be populated here -->
+                    <div class="text-sm text-gray-500">Nenhuma transação encontrada</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Data Entry Modal -->
+    <div class="modal" id="data-entry-modal">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-primary">Adicionar Transação</h2>
+                <button class="text-gray-500 hover:text-gray-700" id="close-data-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="transaction-form" class="space-y-4">
+                <div>
+                    <label for="description" class="block mb-1 text-sm font-medium">Descrição</label>
+                    <input type="text" id="description" name="description" 
+                           class="w-full px-3 py-2 text-base border border-gray-300 rounded-md bg-white text-gray-800"
+                           required>
+                </div>
+                
+                <div>
+                    <label for="amount" class="block mb-1 text-sm font-medium">Valor ($)</label>
+                    <input type="number" id="amount" name="amount" step="0.01"
+                           class="w-full px-3 py-2 text-base border border-gray-300 rounded-md bg-white text-gray-800"
+                           required>
+                </div>
+                
+                <div>
+                    <label for="date" class="block mb-1 text-sm font-medium">Data</label>
+                    <input type="date" id="date" name="date" 
+                           class="w-full px-3 py-2 text-base border border-gray-300 rounded-md bg-white text-gray-800"
+                           required>
+                </div>
+                
+                <div>
+                    <label for="category" class="block mb-1 text-sm font-medium">Categoria</label>
+                    <select id="category" name="category" 
+                            class="w-full px-3 py-2 text-base border border-gray-300 rounded-md bg-white text-gray-800">
+                        <option value="housing">Moradia</option>
+                        <option value="food">Alimentação</option>
+                        <option value="transport">Transporte</option>
+                        <option value="entertainment">Lazer</option>
+                        <option value="health">Saúde</option>
+                        <option value="education">Educação</option>
+                        <option value="salary">Salário</option>
+                        <option value="investment">Investimentos</option>
+                        <option value="other">Outros</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="radio" id="type-expense" name="type" value="expense" class="mr-2" checked>
+                    <label for="type-expense" class="mr-4">Despesa</label>
+                    
+                    <input type="radio" id="type-income" name="type" value="income" class="mr-2">
+                    <label for="type-income">Receita</label>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full py-2 px-4 bg-secondary hover:bg-opacity-90 text-white font-medium rounded-md">
+                    Adicionar Transação
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Import Data Modal -->
+    <div class="modal" id="import-data-modal">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-primary">Importar Dados</h2>
+                <button class="text-gray-500 hover:text-gray-700" id="close-import-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="import-form" class="space-y-4">
+                <div>
+                    <label class="block mb-1 text-sm font-medium">Arquivo CSV</label>
+                    <div class="border border-dashed border-gray-300 p-4 rounded-md text-center">
+                        <label for="file-upload" class="cursor-pointer">
+                            <i class="fas fa-file-upload text-2xl text-gray-400 mb-2"></i>
+                            <p class="text-sm">Clique ou arraste um arquivo CSV aqui</p>
+                            <p class="text-xs text-gray-500 mt-1">Formato: description,amount,date,category,type</p>
+                            <input type="file" id="file-upload" accept=".csv" class="hidden">
+                        </label>
+                    </div>
+                    <div id="file-name" class="text-sm mt-2 text-gray-600"></div>
+                </div>
+                
+                <div>
+                    <label class="block mb-1 text-sm font-medium">Ou Cole seus Dados CSV</label>
+                    <textarea id="csv-data" class="w-full px-3 py-2 text-base border border-gray-300 rounded-md bg-white text-gray-800 h-32" 
+                              placeholder="description,amount,date,category,type"></textarea>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full py-2 px-4 bg-secondary hover:bg-opacity-90 text-white font-medium rounded-md">
+                    Importar Dados
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- API Connection Modal -->
+    <div class="modal" id="api-modal">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-primary">Conectar API</h2>
+                <button class="text-gray-500 hover:text-gray-700" id="close-api-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="api-form" class="space-y-4">
+                <div>
+                    <label for="api-url" class="block mb-1 text-sm font-medium">URL da API</label>
+                    <input type="url" id="api-url" name="api-url" 
+                           class="w-full px-3 py-2 text-base border border-gray-300 rounded-md bg-white text-gray-800"
+                           placeholder="https://api.exemplo.com/transactions">
+                </div>
+                
+                <div>
+                    <label for="api-key" class="block mb-1 text-sm font-medium">Chave da API (opcional)</label>
+                    <input type="text" id="api-key" name="api-key" 
+                           class="w-full px-3 py-2 text-base border border-gray-300 rounded-md bg-white text-gray-800"
+                           placeholder="sua_chave_api">
+                </div>
+                
+                <div>
+                    <label class="block mb-1 text-sm font-medium">Método</label>
+                    <div class="flex space-x-4">
+                        <div class="flex items-center">
+                            <input type="radio" id="method-get" name="method" value="GET" class="mr-1" checked>
+                            <label for="method-get">GET</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="method-post" name="method" value="POST" class="mr-1">
+                            <label for="method-post">POST</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="demo-section">
+                    <div class="border-t border-gray-200 my-4 pt-4">
+                        <h3 class="text-md font-medium mb-2">Demonstração</h3>
+                        <p class="text-sm text-gray-600 mb-2">Para testar sem uma API real, selecione uma opção de demonstração:</p>
+                        <select id="demo-option" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-800">
+                            <option value="">Selecione uma opção de demo...</option>
+                            <option value="sample1">Finanças Pessoais - 12 meses</option>
+                            <option value="sample2">Despesas Empresariais - 6 meses</option>
+                            <option value="sample3">Controle Orçamentário - 3 meses</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full py-2 px-4 bg-secondary hover:bg-opacity-90 text-white font-medium rounded-md">
+                    Buscar Dados
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Transactions List Modal -->
+    <div class="modal" id="transactions-modal">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-primary">Todas as Transações</h2>
+                <button class="text-gray-500 hover:text-gray-700" id="close-transactions-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="mb-4 flex flex-wrap gap-2">
+                <input type="text" id="search-transactions" placeholder="Buscar..." 
+                       class="px-3 py-1 border border-gray-300 rounded-md text-sm">
+                
+                <select id="filter-type" class="px-3 py-1 border border-gray-300 rounded-md text-sm">
+                    <option value="all">Todos os tipos</option>
+                    <option value="income">Receitas</option>
+                    <option value="expense">Despesas</option>
+                </select>
+                
+                <select id="filter-category" class="px-3 py-1 border border-gray-300 rounded-md text-sm">
+                    <option value="all">Todas as categorias</option>
+                    <option value="housing">Moradia</option>
+                    <option value="food">Alimentação</option>
+                    <option value="transport">Transporte</option>
+                    <option value="entertainment">Lazer</option>
+                    <option value="health">Saúde</option>
+                    <option value="education">Educação</option>
+                    <option value="salary">Salário</option>
+                    <option value="investment">Investimentos</option>
+                    <option value="other">Outros</option>
+                </select>
+                
+                <button id="clear-filters" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-sm">
+                    Limpar filtros
+                </button>
+            </div>
+            
+            <div class="overflow-y-auto flex-grow custom-scrollbar">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Descrição
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Data
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Categoria
+                            </th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Valor
+                            </th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Ações
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="transactions-table-body">
+                        <!-- Transactions will be populated here -->
+                    </tbody>
+                </table>
+                <div id="no-transactions-message" class="py-4 text-center text-gray-500 hidden">
+                    Nenhuma transação encontrada.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div class="modal" id="confirmation-modal">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div class="text-center mb-4">
+                <i class="fas fa-exclamation-triangle text-yellow-500 text-4xl mb-3"></i>
+                <h2 class="text-xl font-bold">Confirmar Exclusão</h2>
+                <p class="text-gray-600 mt-2">Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.</p>
+            </div>
+            
+            <div class="flex justify-center space-x-4">
+                <button id="cancel-delete" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md">
+                    Cancelar
+                </button>
+                <button id="confirm-delete" class="px-4 py-2 bg-red-500 text-white rounded-md">
+                    Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === JAVASCRIPT ===
+        
+        // Dados e configuração
+        let transactions = [];
+        let transactionToDelete = null;
+        
+        const categoryColors = {
+            housing: '#1a3a5f',
+            food: '#4a90e2',
+            transport: '#f5a623',
+            entertainment: '#43b581',
+            health: '#7159c1',
+            education: '#738adb',
+            salary: '#4CAF50',
+            investment: '#26A69A',
+            other: '#607D8B'
+        };
+
+        const categoryIcons = {
+            housing: 'fa-home',
+            food: 'fa-utensils',
+            transport: 'fa-car',
+            entertainment: 'fa-film',
+            health: 'fa-heartbeat',
+            education: 'fa-graduation-cap',
+            salary: 'fa-money-bill-wave',
+            investment: 'fa-chart-line',
+            other: 'fa-box'
+        };
+
+        const categoryNames = {
+            housing: 'Moradia',
+            food: 'Alimentação',
+            transport: 'Transporte',
+            entertainment: 'Lazer',
+            health: 'Saúde',
+            education: 'Educação',
+            salary: 'Salário',
+            investment: 'Investimentos',
+            other: 'Outros'
+        };
+        
+        // Referências aos gráficos
+        let monthlyChart = null;
+        let expensesChart = null;
+        let areaChart = null;
+        
+        // Funções para manipulação de dados
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        }
+        
+        function formatDateForDisplay(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('pt-BR');
+        }
+        
+        function parseCSV(csvText) {
+            // Função simples para analisar CSV
+            const lines = csvText.trim().split('\n');
+            return lines.map(line => {
+                const [description, amount, date, category, type] = line.split(',');
+                return {
+                    id: Date.now() + Math.random(),
+                    description: description.trim(),
+                    amount: parseFloat(amount.trim()),
+                    date: date.trim(),
+                    category: category.trim(),
+                    type: type.trim()
+                };
+            }).filter(item => !isNaN(item.amount));
+        }
+        
+        function deleteTransaction(id) {
+            // Encontrar índice da transação
+            const index = transactions.findIndex(t => t.id === id);
+            if (index !== -1) {
+                // Remover do array
+                transactions.splice(index, 1);
+                // Atualizar o dashboard
+                updateDashboard();
+                // Atualizar a tabela de transações se estiver aberta
+                if (document.getElementById('transactions-modal').classList.contains('open')) {
+                    updateTransactionsTable();
+                }
+            }
+        }
+        
+        // Exibir notificações em vez de alerts
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Remover após 3 segundos
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+        
+        // Função para gerar dados de exemplo
+        function generateSampleData(option) {
+            const currentYear = new Date().getFullYear();
+            const data = [];
+            
+            if (option === 'sample1') {
+                // Finanças pessoais - 12 meses
+                // Salário mensal
+                for (let month = 0; month < 12; month++) {
+                    const date = new Date(currentYear, month, 15);
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Salário Mensal',
+                        amount: 3500 + Math.random() * 500,
+                        date: date.toISOString().split('T')[0],
+                        category: 'salary',
+                        type: 'income'
+                    });
+                    
+                    // Aluguel
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Aluguel',
+                        amount: 1200,
+                        date: new Date(currentYear, month, 5).toISOString().split('T')[0],
+                        category: 'housing',
+                        type: 'expense'
+                    });
+                    
+                    // Alimentação
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Supermercado',
+                        amount: 350 + Math.random() * 100,
+                        date: new Date(currentYear, month, 10).toISOString().split('T')[0],
+                        category: 'food',
+                        type: 'expense'
+                    });
+                    
+                    // Transporte
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Combustível',
+                        amount: 200 + Math.random() * 50,
+                        date: new Date(currentYear, month, 20).toISOString().split('T')[0],
+                        category: 'transport',
+                        type: 'expense'
+                    });
+                    
+                    // Lazer
+                    if (month % 2 === 0) {
+                        data.push({
+                            id: Date.now() + Math.random(),
+                            description: 'Cinema/Restaurante',
+                            amount: 150 + Math.random() * 50,
+                            date: new Date(currentYear, month, 25).toISOString().split('T')[0],
+                            category: 'entertainment',
+                            type: 'expense'
+                        });
+                    }
+                    
+                    // Saúde
+                    if (month % 3 === 0) {
+                        data.push({
+                            id: Date.now() + Math.random(),
+                            description: 'Farmácia/Médico',
+                            amount: 180 + Math.random() * 120,
+                            date: new Date(currentYear, month, 12).toISOString().split('T')[0],
+                            category: 'health',
+                            type: 'expense'
+                        });
+                    }
+                    
+                    // Educação
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Curso Online',
+                        amount: 80,
+                        date: new Date(currentYear, month, 8).toISOString().split('T')[0],
+                        category: 'education',
+                        type: 'expense'
+                    });
+                    
+                    // Investimento
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Investimento Mensal',
+                        amount: 500,
+                        date: new Date(currentYear, month, 16).toISOString().split('T')[0],
+                        category: 'investment',
+                        type: 'expense'
+                    });
+                }
+            } else if (option === 'sample2') {
+                // Despesas empresariais - 6 meses
+                for (let month = 0; month < 6; month++) {
+                    // Receitas
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Vendas Mensais',
+                        amount: 10000 + Math.random() * 2000,
+                        date: new Date(currentYear, month, 28).toISOString().split('T')[0],
+                        category: 'salary',
+                        type: 'income'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Receita com Serviços',
+                        amount: 5000 + Math.random() * 1000,
+                        date: new Date(currentYear, month, 15).toISOString().split('T')[0],
+                        category: 'salary',
+                        type: 'income'
+                    });
+                    
+                    // Despesas
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Aluguel Comercial',
+                        amount: 3000,
+                        date: new Date(currentYear, month, 5).toISOString().split('T')[0],
+                        category: 'housing',
+                        type: 'expense'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Folha de Pagamento',
+                        amount: 5000 + Math.random() * 500,
+                        date: new Date(currentYear, month, 1).toISOString().split('T')[0],
+                        category: 'other',
+                        type: 'expense'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Fornecedores',
+                        amount: 2500 + Math.random() * 500,
+                        date: new Date(currentYear, month, 10).toISOString().split('T')[0],
+                        category: 'food',
+                        type: 'expense'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Marketing',
+                        amount: 1200 + Math.random() * 300,
+                        date: new Date(currentYear, month, 12).toISOString().split('T')[0],
+                        category: 'entertainment',
+                        type: 'expense'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Logística',
+                        amount: 800 + Math.random() * 200,
+                        date: new Date(currentYear, month, 18).toISOString().split('T')[0],
+                        category: 'transport',
+                        type: 'expense'
+                    });
+                }
+            } else if (option === 'sample3') {
+                // Controle orçamentário - 3 meses
+                for (let month = 0; month < 3; month++) {
+                    // Receitas
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Salário Principal',
+                        amount: 5000,
+                        date: new Date(currentYear, month, 5).toISOString().split('T')[0],
+                        category: 'salary',
+                        type: 'income'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Renda Extra',
+                        amount: 1200 + Math.random() * 300,
+                        date: new Date(currentYear, month, 20).toISOString().split('T')[0],
+                        category: 'salary',
+                        type: 'income'
+                    });
+                    
+                    // Despesas fixas
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Moradia',
+                        amount: 1800,
+                        date: new Date(currentYear, month, 10).toISOString().split('T')[0],
+                        category: 'housing',
+                        type: 'expense'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Transporte',
+                        amount: 300,
+                        date: new Date(currentYear, month, 12).toISOString().split('T')[0],
+                        category: 'transport',
+                        type: 'expense'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Alimentação',
+                        amount: 1000,
+                        date: new Date(currentYear, month, 15).toISOString().split('T')[0],
+                        category: 'food',
+                        type: 'expense'
+                    });
+                    
+                    // Despesas variáveis
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Entretenimento',
+                        amount: 400 + Math.random() * 200,
+                        date: new Date(currentYear, month, 22).toISOString().split('T')[0],
+                        category: 'entertainment',
+                        type: 'expense'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Roupas',
+                        amount: 300 + Math.random() * 150,
+                        date: new Date(currentYear, month, 18).toISOString().split('T')[0],
+                        category: 'other',
+                        type: 'expense'
+                    });
+                    
+                    // Investimentos
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Investimento Emergência',
+                        amount: 500,
+                        date: new Date(currentYear, month, 6).toISOString().split('T')[0],
+                        category: 'investment',
+                        type: 'expense'
+                    });
+                    
+                    data.push({
+                        id: Date.now() + Math.random(),
+                        description: 'Previdência',
+                        amount: 300,
+                        date: new Date(currentYear, month, 6).toISOString().split('T')[0],
+                        category: 'investment',
+                        type: 'expense'
+                    });
+                }
+            }
+            
+            return data;
+        }
+        
+        // Funções para atualizar o dashboard
+        function updateDashboard() {
+            updateSummary();
+            updateMonthlyChart();
+            updateExpensesChart();
+            updateAreaChart();
+            updateRecentTransactions();
+        }
+        
+        function updateSummary() {
+            const totalIncome = transactions
+                .filter(t => t.type === 'income')
+                .reduce((sum, t) => sum + t.amount, 0);
+                
+            const totalExpenses = transactions
+                .filter(t => t.type === 'expense')
+                .reduce((sum, t) => sum + t.amount, 0);
+                
+            const balance = totalIncome - totalExpenses;
+            const transactionCount = transactions.length;
+            
+            document.getElementById('total-income').textContent = formatCurrency(totalIncome).replace('R$', '$');
+            document.getElementById('total-expenses').textContent = formatCurrency(totalExpenses).replace('R$', '$');
+            document.getElementById('balance').textContent = formatCurrency(balance).replace('R$', '$');
+            document.getElementById('transaction-count').textContent = transactionCount;
+        }
+        
+        function updateMonthlyChart() {
+            const selectedYear = document.getElementById('year-selector').value;
+            
+            // Preparar dados por mês
+            const monthlyData = Array(12).fill(0).map(() => ({income: 0, expense: 0}));
+            
+            transactions.forEach(transaction => {
+                const date = new Date(transaction.date);
+                const year = date.getFullYear();
+                const month = date.getMonth();
+                
+                if (year.toString() === selectedYear) {
+                    if (transaction.type === 'income') {
+                        monthlyData[month].income += transaction.amount;
+                    } else {
+                        monthlyData[month].expense += transaction.amount;
+                    }
+                }
+            });
+            
+            const chartData = {
+                labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+                datasets: [
+                    {
+                        label: 'Despesas',
+                        data: monthlyData.map(d => d.expense),
+                        backgroundColor: '#1a3a5f',
+                        borderWidth: 0,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Receitas',
+                        data: monthlyData.map(d => d.income),
+                        backgroundColor: '#f5a623',
+                        borderWidth: 0,
+                        borderRadius: 4
+                    }
+                ]
+            };
+            
+            const ctx = document.getElementById('monthly-chart').getContext('2d');
+            
+            if (monthlyChart) {
+                monthlyChart.destroy();
+            }
+            
+            monthlyChart = new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.7
+                }
+            });
+        }
+        
+        function updateExpensesChart() {
+            // Agrupar despesas por categoria
+            const expensesByCategory = {};
+            transactions
+                .filter(t => t.type === 'expense')
+                .forEach(t => {
+                    if (!expensesByCategory[t.category]) {
+                        expensesByCategory[t.category] = 0;
+                    }
+                    expensesByCategory[t.category] += t.amount;
+                });
+            
+            const categories = Object.keys(expensesByCategory);
+            const data = categories.map(category => expensesByCategory[category]);
+            const colors = categories.map(category => categoryColors[category] || '#607D8B');
+            const labels = categories.map(category => categoryNames[category] || category);
+            
+            // Atualizar legenda de categorias
+            const legendContainer = document.getElementById('category-legend');
+            legendContainer.innerHTML = '';
+            
+            if (categories.length === 0) {
+                legendContainer.innerHTML = '<div class="text-gray-500">Nenhuma despesa registrada</div>';
+            } else {
+                const totalExpenses = data.reduce((sum, val) => sum + val, 0);
+                
+                categories.forEach((category, index) => {
+                    const percentage = Math.round((data[index] / totalExpenses) * 100);
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between';
+                    item.innerHTML = `
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 rounded-full mr-1" style="background-color: ${colors[index]}"></div>
+                            <span>${labels[index]}</span>
+                        </div>
+                        <span>${percentage}%</span>
+                    `;
+                    legendContainer.appendChild(item);
+                });
+            }
+            
+            const ctx = document.getElementById('expenses-chart').getContext('2d');
+            
+            if (expensesChart) {
+                expensesChart.destroy();
+            }
+            
+            if (categories.length === 0) {
+                // Se não há despesas, criar um gráfico vazio
+                expensesChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Sem dados'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: ['#e0e0e0'],
+                            borderWidth: 0,
+                            cutout: '75%'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: false
+                            }
+                        }
+                    }
+                });
+            } else {
+                expensesChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: colors,
+                            borderWidth: 0,
+                            cutout: '75%'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        function updateAreaChart() {
+            // Agrupa dados por dia para o fluxo de caixa (saldo acumulado)
+            const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            if (sortedTransactions.length === 0) {
+                if (areaChart) {
+                    areaChart.destroy();
+                }
+                
+                const ctx = document.getElementById('area-chart').getContext('2d');
+                areaChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Sem dados'],
+                        datasets: [{
+                            label: 'Fluxo de Caixa',
+                            data: [0],
+                            borderColor: '#e0e0e0',
+                            backgroundColor: '#f5f5f5',
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                return;
+            }
+            
+            const dateMap = new Map();
+            let cumulativeBalance = 0;
+            
+            sortedTransactions.forEach(transaction => {
+                const amount = transaction.type === 'income' ? transaction.amount : -transaction.amount;
+                cumulativeBalance += amount;
+                dateMap.set(transaction.date, cumulativeBalance);
+            });
+            
+            const dates = Array.from(dateMap.keys());
+            const balances = Array.from(dateMap.values());
+            
+            // Formatar datas para exibição
+            const formattedDates = dates.map(date => {
+                const d = new Date(date);
+                return d.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' });
+            });
+            
+            const ctx = document.getElementById('area-chart').getContext('2d');
+            
+            if (areaChart) {
+                areaChart.destroy();
+            }
+            
+            areaChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: formattedDates,
+                    datasets: [{
+                        label: 'Fluxo de Caixa',
+                        data: balances,
+                        borderColor: '#f5a623',
+                        backgroundColor: function(context) {
+                            const chart = context.chart;
+                            const {ctx, chartArea} = chart;
+                            if (!chartArea) {
+                                return null;
+                            }
+                            const gradient = ctx.createLinearGradient(
+                                0, chartArea.top, 0, chartArea.bottom);
+                            gradient.addColorStop(0, 'rgba(245, 166, 35, 0.4)');
+                            gradient.addColorStop(1, 'rgba(74, 144, 226, 0.1)');
+                            return gradient;
+                        },
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#f5a623',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateRecentTransactions() {
+            const container = document.getElementById('recent-transactions');
+            container.innerHTML = '';
+            
+            // Ordenar transações por data (mais recentes primeiro)
+            const sortedTransactions = [...transactions]
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 5);  // Mostrar apenas as 5 mais recentes
+            
+            if (sortedTransactions.length === 0) {
+                container.innerHTML = '<div class="text-sm text-gray-500">Nenhuma transação encontrada</div>';
+                return;
+            }
+            
+            sortedTransactions.forEach(transaction => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between border-b border-gray-100 pb-2';
+                
+                const iconClass = categoryIcons[transaction.category] || 'fa-circle';
+                const amountClass = transaction.type === 'income' ? 'text-green-500' : 'text-red-500';
+                const amountPrefix = transaction.type === 'income' ? '+' : '-';
+                
+                item.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-3">
+                            <i class="fas ${iconClass} text-primary text-xs"></i>
+                        </div>
+                        <div>
+                            <div class="text-sm font-medium">${transaction.description}</div>
+                            <div class="text-xs text-gray-500">${formatDateForDisplay(transaction.date)}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="text-sm font-medium ${amountClass} mr-3">${amountPrefix}${formatCurrency(transaction.amount).replace('R$', '$')}</div>
+                        <button class="delete-transaction-btn action-button text-gray-400 hover:text-red-500" data-id="${transaction.id}">
+                            <i class="fas fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(item);
+            });
+            
+            // Adicionar eventos aos botões de exclusão
+            document.querySelectorAll('.delete-transaction-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const id = Number(this.getAttribute('data-id'));
+                    transactionToDelete = id;
+                    document.getElementById('confirmation-modal').classList.add('open');
+                });
+            });
+        }
+        
+        function updateTransactionsTable() {
+            const tbody = document.getElementById('transactions-table-body');
+            const noTransactionsMessage = document.getElementById('no-transactions-message');
+            
+            // Obter filtros
+            const searchTerm = document.getElementById('search-transactions').value.toLowerCase();
+            const filterType = document.getElementById('filter-type').value;
+            const filterCategory = document.getElementById('filter-category').value;
+            
+            // Aplicar filtros
+            let filteredTransactions = [...transactions];
+            
+            if (searchTerm) {
+                filteredTransactions = filteredTransactions.filter(t => 
+                    t.description.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (filterType !== 'all') {
+                filteredTransactions = filteredTransactions.filter(t => t.type === filterType);
+            }
+            
+            if (filterCategory !== 'all') {
+                filteredTransactions = filteredTransactions.filter(t => t.category === filterCategory);
+            }
+            
+            // Ordenar por data (mais recentes primeiro)
+            filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            tbody.innerHTML = '';
+            
+            if (filteredTransactions.length === 0) {
+                noTransactionsMessage.classList.remove('hidden');
+            } else {
+                noTransactionsMessage.classList.add('hidden');
+                
+                filteredTransactions.forEach(transaction => {
+                    const row = document.createElement('tr');
+                    row.className = 'transaction-row hover:bg-gray-50';
+                    
+                    const iconClass = categoryIcons[transaction.category] || 'fa-circle';
+                    const amountClass = transaction.type === 'income' ? 'text-green-500' : 'text-red-500';
+                    const amountPrefix = transaction.type === 'income' ? '+' : '-';
+                    
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mr-3">
+                                    <i class="fas ${iconClass} text-primary text-xs"></i>
+                                </div>
+                                <span>${transaction.description}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            ${formatDateForDisplay(transaction.date)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            ${categoryNames[transaction.category] || transaction.category}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right ${amountClass} font-medium">
+                            ${amountPrefix}${formatCurrency(transaction.amount).replace('R$', '$')}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <button class="delete-transaction-btn action-button text-gray-400 hover:text-red-500" data-id="${transaction.id}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    `;
+                    
+                    tbody.appendChild(row);
+                });
+                
+                // Adicionar eventos aos botões de exclusão
+                document.querySelectorAll('.delete-transaction-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const id = Number(this.getAttribute('data-id'));
+                        transactionToDelete = id;
+                        document.getElementById('confirmation-modal').classList.add('open');
+                    });
+                });
+            }
+        }
+        
+        // Inicialização e eventos
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar dashboard
+            updateDashboard();
+            
+            // Atualizar ano no seletor
+            const yearSelector = document.getElementById('year-selector');
+            yearSelector.value = new Date().getFullYear().toString();
+            
+            // Configurar manipuladores de eventos
+            yearSelector.addEventListener('change', updateMonthlyChart);
+            
+            // Manipuladores para modais
+            document.getElementById('data-entry-link').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('data-entry-modal').classList.add('open');
+            });
+            
+            document.getElementById('close-data-modal').addEventListener('click', function() {
+                document.getElementById('data-entry-modal').classList.remove('open');
+            });
+            
+            document.getElementById('import-data-link').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('import-data-modal').classList.add('open');
+            });
+            
+            document.getElementById('close-import-modal').addEventListener('click', function() {
+                document.getElementById('import-data-modal').classList.remove('open');
+            });
+            
+            document.getElementById('api-link').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('api-modal').classList.add('open');
+            });
+            
+            document.getElementById('close-api-modal').addEventListener('click', function() {
+                document.getElementById('api-modal').classList.remove('open');
+            });
+            
+            document.getElementById('transaction-list-link').addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('transactions-modal').classList.add('open');
+                updateTransactionsTable();
+            });
+            
+            document.getElementById('view-all-transactions').addEventListener('click', function() {
+                document.getElementById('transactions-modal').classList.add('open');
+                updateTransactionsTable();
+            });
+            
+            document.getElementById('close-transactions-modal').addEventListener('click', function() {
+                document.getElementById('transactions-modal').classList.remove('open');
+            });
+            
+            // Filtros da tabela de transações
+            document.getElementById('search-transactions').addEventListener('input', updateTransactionsTable);
+            document.getElementById('filter-type').addEventListener('change', updateTransactionsTable);
+            document.getElementById('filter-category').addEventListener('change', updateTransactionsTable);
+            
+            document.getElementById('clear-filters').addEventListener('click', function() {
+                document.getElementById('search-transactions').value = '';
+                document.getElementById('filter-type').value = 'all';
+                document.getElementById('filter-category').value = 'all';
+                updateTransactionsTable();
+            });
+            
+            // Modal de confirmação de exclusão
+            document.getElementById('cancel-delete').addEventListener('click', function() {
+                document.getElementById('confirmation-modal').classList.remove('open');
+                transactionToDelete = null;
+            });
+            
+            document.getElementById('confirm-delete').addEventListener('click', function() {
+                if (transactionToDelete) {
+                    deleteTransaction(transactionToDelete);
+                    document.getElementById('confirmation-modal').classList.remove('open');
+                    showNotification('Transação excluída com sucesso!', 'success');
+                    transactionToDelete = null;
+                }
+            });
+            
+            // Processamento de formulários
+            document.getElementById('transaction-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const description = document.getElementById('description').value;
+                const amount = parseFloat(document.getElementById('amount').value);
+                const date = document.getElementById('date').value;
+                const category = document.getElementById('category').value;
+                const type = document.querySelector('input[name="type"]:checked').value;
+                
+                const newTransaction = {
+                    id: Date.now(),
+                    description,
+                    amount,
+                    date,
+                    category,
+                    type
+                };
+                
+                transactions.push(newTransaction);
+                updateDashboard();
+                
+                // Fechar modal e limpar formulário
+                document.getElementById('data-entry-modal').classList.remove('open');
+                document.getElementById('transaction-form').reset();
+                
+                // Definir data para hoje
+                document.getElementById('date').valueAsDate = new Date();
+                
+                showNotification('Transação adicionada com sucesso!', 'success');
+            });
+            
+            // Upload de arquivo CSV
+            document.getElementById('file-upload').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    document.getElementById('file-name').textContent = file.name;
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        document.getElementById('csv-data').value = event.target.result;
+                    };
+                    reader.readAsText(file);
+                }
+            });
+            
+            // Importação de dados
+            document.getElementById('import-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const csvData = document.getElementById('csv-data').value;
+                if (csvData.trim()) {
+                    const newTransactions = parseCSV(csvData);
+                    if (newTransactions.length > 0) {
+                        transactions = [...transactions, ...newTransactions];
+                        updateDashboard();
+                        
+                        // Fechar modal e limpar formulário
+                        document.getElementById('import-data-modal').classList.remove('open');
+                        document.getElementById('import-form').reset();
+                        document.getElementById('file-name').textContent = '';
+                        
+                        showNotification(`Importados ${newTransactions.length} registros com sucesso!`, 'success');
+                    } else {
+                        showNotification('Nenhum dado válido encontrado. Verifique o formato do CSV.', 'error');
+                    }
+                } else {
+                    showNotification('Por favor, insira ou faça upload de dados CSV.', 'warning');
+                }
+            });
+            
+            // API ou dados de demo
+            document.getElementById('api-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const demoOption = document.getElementById('demo-option').value;
+                
+                if (demoOption) {
+                    // Usar dados de demonstração
+                    const demoData = generateSampleData(demoOption);
+                    transactions = demoData;
+                    updateDashboard();
+                    
+                    // Fechar modal
+                    document.getElementById('api-modal').classList.remove('open');
+                    
+                    showNotification(`Carregados ${demoData.length} registros de demonstração!`, 'success');
+                } else {
+                    // Verificar URL da API
+                    const apiUrl = document.getElementById('api-url').value;
+                    if (!apiUrl) {
+                        showNotification('Por favor, insira uma URL da API ou selecione uma opção de demonstração.', 'warning');
+                        return;
+                    }
+                    
+                    // Na vida real, faríamos uma chamada fetch aqui
+                    // Como estamos em um ambiente sandbox, apenas simulamos
+                    showNotification('Em um ambiente real, esta função faria uma chamada à API ' + apiUrl + 
+                          ' para buscar dados. Por favor, use a opção de demonstração para testar.', 'info');
+                }
+            });
+            
+            // Botão de atualização
+            document.getElementById('refresh-data-btn').addEventListener('click', updateDashboard);
+            
+            // Responsividade da sidebar
+            document.getElementById('sidebar-toggle').addEventListener('click', function() {
+                document.querySelector('.sidebar').classList.toggle('open');
+            });
+            
+            // Definir data para hoje no formulário
+            document.getElementById('date').valueAsDate = new Date();
+        });
+    </script>
+</body>
+</html>
